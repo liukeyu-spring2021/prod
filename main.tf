@@ -240,10 +240,10 @@ resource "aws_instance" "webapp" {
   vpc_security_group_ids = [aws_security_group.ec2.id]
   user_data = <<EOF
     #!/bin/bash
-    echo user="root" >> /etc/environment
-    echo password="liukeyu521" >> /etc/environment
-    echo host="csye6225-f20.cbcz4zpbrrbg.us-east-1.rds.amazonaws.com" >> /etc/environment
-    echo bucketname="webapps32" >> /etc/environment
+    sudo bash -c 'echo user="root" >> /etc/environment'
+    sudo bash -c 'echo password="liukeyu521" >> /etc/environment'
+    sudo bash -c 'echo host="csye6225-f20.cbcz4zpbrrbg.us-east-1.rds.amazonaws.com" >> /etc/environment'
+    sudo bash -c 'echo bucketname="webapps32" >> /etc/environment'
   EOF
 
 
