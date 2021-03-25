@@ -534,3 +534,17 @@ resource "aws_iam_role" "CodeDeployServiceRole" {
   }
   EOF
 }
+
+data "aws_route53_zone" "webapp_route53_hosted_zone"{
+  name          = var.domain_name
+  private_zone = false
+}
+
+resource "aws_route53_record" "www" {
+  zone_id = data.aws_route53_zone.webapp_route53_hosted_zone.zone_id
+  name    = var.domain_name
+  type    = "A"
+  ttl     = "60"
+  records = [aws_instance.webapp.public_ip]
+}
+
