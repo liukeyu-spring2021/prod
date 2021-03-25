@@ -287,6 +287,12 @@ resource "aws_iam_policy_attachment" "attach1" {
   policy_arn = aws_iam_policy.CodeDeploy-EC2-S3.arn
   roles = [aws_iam_role.CodeDeployEC2ServiceRole.name]
 }
+resource "aws_iam_policy_attachment" "attach_cloud_watch_policy_to_ec2_role" {
+  name       = var.attach_cloud_watch_policy_to_ec2_role_name
+  roles      = [aws_iam_role.CodeDeployEC2ServiceRole.name]
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+}
+
 
 resource "aws_iam_instance_profile" "profile" {
   name = "test-profile"
@@ -296,6 +302,7 @@ resource "aws_iam_instance_profile" "profile1" {
   name = "CodeDeployEC2ServiceRole"
   role = aws_iam_role.CodeDeployEC2ServiceRole.name
 }
+
 
 resource "aws_iam_user_policy" "GH-Upload-To-S3" {
   name = "GH-Upload-To-S3"

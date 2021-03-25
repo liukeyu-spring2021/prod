@@ -20,7 +20,7 @@ variable "dbname" {
   default = "db_cloud"
 }
 variable "amiID"{
-    default = "ami-0cc47deb29ad01449"
+    default = "ami-05bc185d25a35f6bc"
 }
 variable "aws_user" {
   default = "ghaction"
@@ -44,6 +44,11 @@ variable "fbool" {
 variable "hostedzone" {
   type = string
   default = "prod.6225csyekeyuliu.me"
+}
+
+variable "attach_cloud_watch_policy_to_ec2_role_name" {
+  type = string
+  default = "cloud_watch_policy_to_ec2_role_attach"
 }
 
 variable "env" {
