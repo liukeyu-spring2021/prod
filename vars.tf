@@ -282,7 +282,7 @@ variable "cloudwatch_scale_up_alarm_period" {
 
 variable "cloudwatch_scale_up_alarm_threshold" {
   type = number
-  default = 2
+  default = 5
 }
 
 variable "cloudwatch_scale_up_alarm_comparison_operator" {
@@ -309,7 +309,7 @@ variable "cloudwatch_scale_down_alarm_period" {
 
 variable "cloudwatch_scale_down_alarm_evaluation_periods" {
   type = number
-  default = 2
+  default = 3
 }
 
 variable "cloudwatch_scale_down_alarm_threshold" {
