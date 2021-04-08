@@ -788,53 +788,135 @@ resource "aws_route53_record" "lb_alias_record" {
   }
 }
 
-/*
-resource "aws_route53_record" "www" {
-  zone_id = data.aws_route53_zone.webapp_route53_hosted_zone.zone_id
-  name    = var.domain_name
-  type    = "A"
-  ttl     = "60"
-  records = [aws_instance.webapp.public_ip]
-}
-*/
-
-/*
 # -------------------------------------------------------------------
-# ssh key pair
-resource "aws_key_pair" "ssh" {
-  key_name   = var.aws_key_pair_name
-  public_key = var.aws_key_pair_key
-}
-*/
+# dynamodb
+resource "aws_dynamodb_table" "table" {
+  name = var.aws_dynamodb_table_name
+  hash_key = var.aws_dynamodb_table_key
+  read_capacity  = var.aws_dynamodb_table_capacity
+  write_capacity = var.aws_dynamodb_table_capacity
 
-/*# -------------------------------------------------------------------
-# Create CodeDeploy Application
-resource "aws_codedeploy_app" "codedeploy_app" {
-  compute_platform = var.codedeploy_app_cp
-  name             = var.codedeploy_app_name
-}
-# -------------------------------------------------------------------
-# Create CodeDeploy Deployment Group
-resource "aws_codedeploy_deployment_group" "codedeploy_deployment_group" {
-  app_name              = aws_codedeploy_app.codedeploy_app.name
-  deployment_group_name = var.codedeploy_deployment_group_name
-  service_role_arn      = aws_iam_role.code_deploy_service_role.arn
-  deployment_config_name = var.codedeploy_deployment_group_deployment_config_name
-
-  deployment_style {
-    deployment_type = var.codedeploy_deployment_group_deployment_style
+  attribute {
+    name = var.aws_dynamodb_table_key
+    type = var.aws_dynamodb_table_type
   }
+}
 
-  ec2_tag_set {
-    ec2_tag_filter {
-      key   = var.codedeploy_deployment_group_ec2_tag_filter_key
-      type  = var.codedeploy_deployment_group_ec2_tag_filter_type
-      value = var.codedeploy_deployment_group_ec2_tag_filter_value
+# -------------------------------------------------------------------
+# sns topic
+resource "aws_sns_topic" "sns_topic" {
+  name = "Topic"
+}
+
+# -------------------------------------------------------------------
+# lambda basic execution role
+resource "aws_iam_role" "lambda_basic_execution_role" {
+  name = "lambda_basic_execution_role"
+  assume_role_policy = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Action": "sts:AssumeRole",
+      "Principal": {
+        "Service": "lambda.amazonaws.com"
+      },
+      "Effect": "Allow",
+      "Sid": ""
     }
-  }
+  ]
+}
+EOF
+}
 
-  auto_rollback_configuration {
-    enabled = var.fbool
-    # events  = ["DEPLOYMENT_FAILURE"]
-  }
-}*/
+resource "aws_iam_policy" "lambda_policy" {
+  name        = "lambda_policy"
+
+  policy = <<EOF
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "dynamodb:*",
+                "ses:*",
+                "logs:CreateLogGroup",
+                "logs:CreateLogStream",
+                "logs:PutLogEvents"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+EOF
+}
+
+//attach aws_iam_role policy to lambda basic execution role
+resource "aws_iam_policy_attachment" "attach_ses_db_lambda_basic_execution_role" {
+  name       = "attach_ses_dynomodb_lambda_basic_execution_role"
+  roles      = [aws_iam_role.lambda_basic_execution_role.name]
+  policy_arn = aws_iam_policy.lambda_policy.arn
+}
+
+# -------------------------------------------------------------------
+# lambda function
+resource "aws_lambda_function" "lambda_func" {
+  #filename      = "function.zip"
+  function_name = "CDFunc"
+  role          = aws_iam_role.lambda_basic_execution_role.arn
+  handler       = "main"
+  s3_bucket     = "codedeploy.lambda.prod"
+  s3_key        = "csye6225-serverless-7aa54a20e2d5644a0d21905da1aef2e99ca471ab.zip"
+
+  #source_code_hash = filebase64sha256("function.zip")
+
+  runtime = "go1.x"
+}
+
+# -------------------------------------------------------------------
+# add sns trigger to lambda
+resource "aws_lambda_permission" "with_sns" {
+  statement_id  = "AllowExecutionFromSNS"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.lambda_func.function_name
+  principal     = "sns.amazonaws.com"
+  source_arn    = aws_sns_topic.sns_topic.arn
+}
+
+# -------------------------------------------------------------------
+# add sns subscription to lambda
+resource "aws_sns_topic_subscription" "lambda_subscription" {
+  topic_arn            = aws_sns_topic.sns_topic.arn
+  protocol             = "lambda"
+  endpoint             = aws_lambda_function.lambda_func.arn
+}
+
+//ssn-publish-message policy
+resource "aws_iam_policy" "ssn-publish-message-policy" {
+  name        = "policy_sns_publish_message"
+  description = "allow to publish message in sns"
+  policy      = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+      {
+          "Effect": "Allow",
+          "Action": [
+              "sns:Publish"
+          ],
+          "Resource": [
+              "arn:aws:sns:us-east-1:359410113455:Topic"
+          ]
+      }
+  ]
+}
+EOF
+}
+
+//attach ssn-publish-message to `CodeDeployEC2ServiceRole` role
+resource "aws_iam_policy_attachment" "attach_sns_publish_policy_to_ec2_role" {
+  name       = "attach_sns_publish_policy_to_ec2_role"
+  roles      = [aws_iam_role.CodeDeployEC2ServiceRole.name]
+  policy_arn = aws_iam_policy.ssn-publish-message-policy.arn
+}
