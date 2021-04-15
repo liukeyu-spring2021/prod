@@ -42,7 +42,7 @@ Demo commands:
 
 Policy:
 - CodeDeploy-EC2-S3 - CodeDeployEC2ServiceRole
-  - get object from s3 bukcet `codedeploy.prod.bh7cw.me`
+  - get object from s3 bukcet
 - GH-Upload-To-S3 - cicd
   - get/put object from s3 bucket
 - GH-Code-Deploy - cicd
