@@ -214,6 +214,10 @@ resource "aws_db_subnet_group" "dbsubnet" {
   name = "dbsubnet"
   subnet_ids = [aws_subnet.subnet-1.id,aws_subnet.subnet-2.id]
 }
+
+data "aws_kms_key" "by_alias_arn" {
+  key_id = "arn:aws:kms:us-east-1:359410113455:key/8625bac4-dc03-45fb-a3c1-74b2be10d220"
+}
 resource "aws_db_instance" "webappdb" {
 
   engine               = "mysql"
@@ -226,6 +230,8 @@ resource "aws_db_instance" "webappdb" {
   identifier           =  "csye6225-f20"
   db_subnet_group_name =  aws_db_subnet_group.dbsubnet.name
   publicly_accessible    =  "false"
+  storage_encrypted         = true
+  kms_key_id           = "arn:aws:kms:us-east-1:359410113455:key/8625bac4-dc03-45fb-a3c1-74b2be10d220"
   vpc_security_group_ids = [aws_security_group.DB.id]
   skip_final_snapshot = true
   final_snapshot_identifier = "webappdbsnapshot"
@@ -639,7 +645,7 @@ resource "aws_lb_target_group" "lb_target_group" {
 }
 
 # Application Load Balancer listener: http-80
-resource "aws_lb_listener" "app_lb_listener" {
+/*resource "aws_lb_listener" "app_lb_listener" {
   load_balancer_arn = aws_lb.app_lb.arn
   port              = var.app_lb_listener_port
   protocol          = var.app_load_balancer_protocol
@@ -647,10 +653,18 @@ resource "aws_lb_listener" "app_lb_listener" {
     type             = var.app_load_balancer_action_type
     target_group_arn = aws_lb_target_group.lb_target_group.arn
   }
+}*/
+
+# -------------------------------------------------------------------
+# ssl certificate
+# Find a certificate that is issued
+data "aws_acm_certificate" "issued" {
+  domain   = "prod.6225csyekeyuliu.me"
+  statuses = ["ISSUED"]
 }
 
 # Application Load Balancer listener: https-443
-/*resource "aws_lb_listener" "app_lb_listener_https" {
+resource "aws_lb_listener" "app_lb_listener_https" {
   load_balancer_arn = aws_lb.app_lb.arn
   port              = "443"
   protocol          = "HTTPS"
@@ -660,9 +674,30 @@ resource "aws_lb_listener" "app_lb_listener" {
     type             = var.app_load_balancer_action_type
     target_group_arn = aws_lb_target_group.lb_target_group.arn
   }
-}*/
+}
 # -------------------------------------------------------------------
 # Autoscaling Launch Configuration for EC2 Instances
+resource "aws_kms_key" "kopi-kms-key" {
+  description              = "KopiCloud KMS Key"
+  deletion_window_in_days  = 10
+  customer_master_key_spec = "SYMMETRIC_DEFAULT"
+}
+
+# -------------------------------------------------------------------
+# ssh key pair
+resource "aws_key_pair" "rds_key" {
+  key_name   = var.aws_key_pair_name
+  public_key = var.aws_key_pair_key
+}
+
+resource "aws_ebs_default_kms_key" "example" {
+  key_arn = "arn:aws:kms:us-east-1:359410113455:key/1d4d6e6b-e4d5-4ce3-82e2-78105be41213"
+}
+
+resource "aws_ebs_encryption_by_default" "example" {
+  enabled = true
+}
+
 resource "aws_launch_configuration" "aws_conf" {
   name          = var.aws_launch_configuration_name
   image_id      = var.amiID
@@ -682,10 +717,11 @@ echo BUCKET_NAME="${var.aws_s3_bucket_name}" >> /etc/environment
   iam_instance_profile        = aws_iam_instance_profile.profile1.name
   security_groups             = [aws_security_group.autoscale_launch_config.id]
 
+  # root disk
   root_block_device {
-    volume_type            = "gp2"
-    volume_size            = 20
-    delete_on_termination  = true
+    volume_size           = "20"
+    volume_type           = "gp2"
+    delete_on_termination = true
   }
 }
 
