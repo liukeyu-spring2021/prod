@@ -1,5 +1,4 @@
 # infrastructure
-# infrastructure
 Repository for AWS Infrastructure
 
 Credential:
